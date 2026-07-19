@@ -1,0 +1,11 @@
+app = "VERVANG-DIT-MET-JOUW-APP-NAAM"
+primary_region = "ams"
+
+[build]
+
+[processes]
+  app = "npm start"
+
+[[vm]]
+  size = "shared-cpu-1x"
+  memory = "256mb"
