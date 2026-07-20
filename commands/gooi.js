@@ -81,7 +81,7 @@ async function rollForTeam(teamId) {
     ? Math.max(team.board_position - roll, 0)
     : Math.min(team.board_position + roll, boardSize)
 
-  const updates = { board_position: newPosition }
+  const updates = { board_position: newPosition, can_roll: false }
   if (isPenaltyRoll) updates.pending_penalty = false
 
   const { error } = await supabaseAdmin.from('teams').update(updates).eq('id', team.id)
