@@ -30,7 +30,18 @@ async function registerParticipant(interaction, eventId, eventName, osrsName) {
     return `Je bent al aangemeld voor **${eventName}**.`
   }
 
-  const displayName = osrsName?.trim() || interaction.user.username
+  let displayName = osrsName?.trim()
+
+  // Geen naam opgegeven? Kijk of er een OSRS-naam op hun website-profiel staat.
+  if (!displayName) {
+    const { data: profile } = await supabaseAdmin
+      .from('profiles')
+      .select('osrs_username, username')
+      .eq('discord_id', interaction.user.id)
+      .maybeSingle()
+
+    displayName = profile?.osrs_username || profile?.username || interaction.user.username
+  }
 
   const { error } = await supabaseAdmin.from('participants').insert({
     event_id: eventId,
@@ -53,7 +64,7 @@ module.exports = {
     .addStringOption((option) =>
       option
         .setName('osrs-naam')
-        .setDescription('Je in-game RuneScape naam, als die afwijkt van je Discord-naam')
+        .setDescription('Je in-game RuneScape naam (standaard: je naam uit je website-profiel, indien ingesteld)')
         .setRequired(false)
     ),
 
