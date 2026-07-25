@@ -1,7 +1,7 @@
 const { SlashCommandBuilder, StringSelectMenuBuilder, ActionRowBuilder } = require('discord.js')
 const { supabaseAdmin } = require('../lib/supabaseAdmin')
 
-function buildStandingsMessage(eventName, teams, tilesByNumber, boardSize) {
+function buildStandingsMessage(eventName, teams, tilesByNumber, boardSize, revealedSet) {
   const sorted = [...teams].sort((a, b) => b.board_position - a.board_position)
   const medals = ['🥇', '🥈', '🥉']
 
@@ -12,7 +12,9 @@ function buildStandingsMessage(eventName, teams, tilesByNumber, boardSize) {
     if (team.pending_penalty) line += ' ⏳ (strafworp klaar)'
 
     const tile = tilesByNumber[team.board_position]
-    if (tile && team.board_position > 0) {
+    // Alleen de opdracht tonen als dit vakje al onthuld is (anders verklap je
+    // wat er verborgen zit, ook aan spelers die er zelf nog niet zijn geweest)
+    if (tile && team.board_position > 0 && revealedSet.has(team.board_position)) {
       line += `\n     📜 ${tile.description}`
     }
     return line
@@ -44,10 +46,17 @@ async function showStandings(interaction, eventId) {
     .select('*')
     .eq('event_id', eventId)
 
+  const { data: reveals } = await supabaseAdmin
+    .from('board_tile_reveals')
+    .select('tile_number')
+    .eq('event_id', eventId)
+
+  const revealedSet = new Set((reveals ?? []).map((r) => r.tile_number))
+
   const tilesByNumber = {}
   for (const t of tiles ?? []) tilesByNumber[t.tile_number] = t
 
-  const message = buildStandingsMessage(event.name, teams, tilesByNumber, boardSize)
+  const message = buildStandingsMessage(event.name, teams, tilesByNumber, boardSize, revealedSet)
   return interaction.editReply(message)
 }
 

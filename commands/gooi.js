@@ -100,6 +100,15 @@ async function rollForTeam(teamId) {
     source: 'discord_bot',
   })
 
+  if (newPosition > 0) {
+    await supabaseAdmin
+      .from('board_tile_reveals')
+      .upsert(
+        { event_id: team.event_id, tile_number: newPosition },
+        { onConflict: 'event_id,tile_number', ignoreDuplicates: true }
+      )
+  }
+
   if (isPenaltyRoll) {
     return `💥 **${team.name}** gooide de strafworp: **${roll}** terug, staat nu op vak **${newPosition}/${boardSize}**.`
   }
