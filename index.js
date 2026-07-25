@@ -71,6 +71,35 @@ client.on('interactionCreate', async (interaction) => {
       await standCommand.showStandings(interaction, interaction.values[0])
       return
     }
+
+    // /event: keuze van event (als er meerdere actief zijn)
+    if (interaction.isStringSelectMenu() && interaction.customId === 'event_select') {
+      await interaction.deferUpdate()
+
+      const eventId = interaction.values[0]
+      const { data: community } = await supabaseAdmin
+        .from('communities')
+        .select('slug')
+        .eq('discord_guild_id', interaction.guildId)
+        .single()
+      const { data: event } = await supabaseAdmin
+        .from('events')
+        .select('id, name')
+        .eq('id', eventId)
+        .single()
+
+      const eventCommand = client.commands.get('event')
+      await eventCommand.showEventLink(interaction, event, community.slug)
+      return
+    }
+
+    // /bingostand: keuze van event (als er meerdere actieve Bingo-events zijn)
+    if (interaction.isStringSelectMenu() && interaction.customId === 'bingostand_select_event') {
+      await interaction.deferUpdate()
+      const bingostandCommand = client.commands.get('bingostand')
+      await bingostandCommand.showBingoStandings(interaction, interaction.values[0])
+      return
+    }
   } catch (err) {
     console.error(err)
     if (interaction.isRepliable() && !interaction.replied) {
