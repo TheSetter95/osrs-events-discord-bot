@@ -135,29 +135,38 @@ async function rollForTeam(teamId) {
   return `🎲 **${team.name}** gooide een **${roll}** en staat nu op vak **${newPosition}/${boardSize}**.${finishText}${tileText}`
 }
 
-// Toont een team-keuzemenu, of gooit meteen als er maar één team is (organizer-flow)
+// Toont een keuzemenu van vrijgegeven teams, of gooit meteen als er maar één is
 async function showTeamMenuOrRoll(interaction, eventId) {
   const { data: teams } = await supabaseAdmin
     .from('teams')
-    .select('id, name, board_position')
+    .select('id, name, board_position, can_roll')
     .eq('event_id', eventId)
 
   if (!teams || teams.length === 0) {
     return interaction.editReply('Dit event heeft nog geen teams.')
   }
 
-  if (teams.length === 1) {
-    const message = await rollForTeam(teams[0].id)
+  // Alleen vrijgegeven teams mogen gooien — ook voor organizers
+  const rollableTeams = teams.filter((t) => t.can_roll)
+
+  if (rollableTeams.length === 0) {
+    return interaction.editReply(
+      'Geen enkel team is op dit moment vrijgegeven om te gooien. Geef eerst een team vrij via de website.'
+    )
+  }
+
+  if (rollableTeams.length === 1) {
+    const message = await rollForTeam(rollableTeams[0].id)
     return interaction.editReply({ content: message, components: [] })
   }
 
   const menu = new StringSelectMenuBuilder()
     .setCustomId('gooi_select_team')
     .setPlaceholder('Kies een team')
-    .addOptions(teams.map((t) => ({ label: `${t.name} (vak ${t.board_position})`, value: t.id })))
+    .addOptions(rollableTeams.map((t) => ({ label: `${t.name} (vak ${t.board_position})`, value: t.id })))
   const row = new ActionRowBuilder().addComponents(menu)
 
-  return interaction.editReply({ content: 'Voor welk team wil je gooien?', components: [row] })
+  return interaction.editReply({ content: 'Voor welk vrijgegeven team wil je gooien?', components: [row] })
 }
 
 module.exports = {
