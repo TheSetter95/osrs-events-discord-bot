@@ -3,6 +3,7 @@ const fs = require('fs')
 const path = require('path')
 const { Client, GatewayIntentBits, Collection } = require('discord.js')
 const { supabaseAdmin } = require('./lib/supabaseAdmin')
+const { checkPendingSubmissions } = require('./lib/checkPendingSubmissions')
 
 const client = new Client({ intents: [GatewayIntentBits.Guilds] })
 client.commands = new Collection()
@@ -16,6 +17,9 @@ for (const file of fs.readdirSync(commandsPath).filter((f) => f.endsWith('.js'))
 
 client.once('ready', () => {
   console.log(`Ingelogd als ${client.user.tag}`)
+
+  // Elke 30 seconden checken op nieuwe screenshot-meldingen
+  setInterval(() => checkPendingSubmissions(client), 30000)
 })
 
 client.on('interactionCreate', async (interaction) => {
