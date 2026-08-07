@@ -1,24 +1,55 @@
 const { SlashCommandBuilder, StringSelectMenuBuilder, ActionRowBuilder } = require('discord.js')
 const { supabaseAdmin } = require('../lib/supabaseAdmin')
 
-function buildStandingsMessage(eventName, teams, tilesByNumber, boardSize, revealedSet) {
+// Telt alle niet-afgewezen submissions op voor één team+item (zelfde logica als
+// lib/submissionTotals.ts op de website — hier lokaal herhaald voor de bot).
+async function getSubmissionTotal(requirementId, teamId) {
+  const { data } = await supabaseAdmin
+    .from('item_submissions')
+    .select('quantity')
+    .eq('requirement_id', requirementId)
+    .eq('team_id', teamId)
+    .neq('status', 'rejected')
+
+  return (data ?? []).reduce((sum, row) => sum + row.quantity, 0)
+}
+
+async function buildStandingsMessage(eventName, teams, tilesByNumber, boardSize, revealedSet) {
   const sorted = [...teams].sort((a, b) => b.board_position - a.board_position)
   const medals = ['🥇', '🥈', '🥉']
 
-  const lines = sorted.map((team, index) => {
+  const lines = []
+
+  for (let index = 0; index < sorted.length; index++) {
+    const team = sorted[index]
     const rank = medals[index] ?? `${index + 1}.`
     let line = `${rank} **${team.name}** — vak ${team.board_position}/${boardSize}`
     if (team.board_position >= boardSize) line += ' 🏁'
     if (team.pending_penalty) line += ' ⏳ (strafworp klaar)'
 
     const tile = tilesByNumber[team.board_position]
-    // Alleen de opdracht tonen als dit vakje al onthuld is (anders verklap je
-    // wat er verborgen zit, ook aan spelers die er zelf nog niet zijn geweest)
+
+    // Alleen tonen als dit vakje al onthuld is (anders verklap je wat er
+    // verborgen zit, ook aan spelers die er zelf nog niet zijn geweest)
     if (tile && team.board_position > 0 && revealedSet.has(team.board_position)) {
-      line += `\n     📜 ${tile.description}`
+      if (tile.effect_type === 'verzamel_item') {
+        const { data: requirements } = await supabaseAdmin
+          .from('board_tile_requirements')
+          .select('id, item_name, required_quantity')
+          .eq('tile_id', tile.id)
+
+        for (const req of requirements ?? []) {
+          const total = await getSubmissionTotal(req.id, team.id)
+          const done = total >= req.required_quantity ? ' ✅' : ''
+          line += `\n     🎯 ${req.item_name}: ${total}/${req.required_quantity}${done}`
+        }
+      } else {
+        line += `\n     📜 ${tile.description}`
+      }
     }
-    return line
-  })
+
+    lines.push(line)
+  }
 
   return `**Stand van ${eventName}:**\n\n${lines.join('\n')}`
 }
@@ -56,7 +87,7 @@ async function showStandings(interaction, eventId) {
   const tilesByNumber = {}
   for (const t of tiles ?? []) tilesByNumber[t.tile_number] = t
 
-  const message = buildStandingsMessage(event.name, teams, tilesByNumber, boardSize, revealedSet)
+  const message = await buildStandingsMessage(event.name, teams, tilesByNumber, boardSize, revealedSet)
   return interaction.editReply(message)
 }
 
