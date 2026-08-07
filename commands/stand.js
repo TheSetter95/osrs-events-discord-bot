@@ -35,13 +35,13 @@ async function buildStandingsMessage(eventName, teams, tilesByNumber, boardSize,
       if (tile.effect_type === 'verzamel_item') {
         const { data: requirements } = await supabaseAdmin
           .from('board_tile_requirements')
-          .select('id, item_name, required_quantity')
+          .select('id, label, required_quantity')
           .eq('tile_id', tile.id)
 
         for (const req of requirements ?? []) {
           const total = await getSubmissionTotal(req.id, team.id)
           const done = total >= req.required_quantity ? ' ✅' : ''
-          line += `\n     🎯 ${req.item_name}: ${total}/${req.required_quantity}${done}`
+          line += `\n     🎯 ${req.label}: ${total}/${req.required_quantity}${done}`
         }
       } else {
         line += `\n     📜 ${tile.description}`
